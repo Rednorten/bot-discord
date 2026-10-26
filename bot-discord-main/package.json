@@ -1,0 +1,13 @@
+{
+  "name": "discord-member-panel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node src/bot.js" },
+  "dependencies": {
+    "discord.js": "^14.27.0",
+    "dotenv": "^16.4.7",
+    "googleapis": "^144.0.0"
+  }
+}

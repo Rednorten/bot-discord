@@ -1,0 +1,80 @@
+PANEL DISCORD → CERERI HR → GOOGLE SHEETS → WEBHOOK CALLSIGN
+
+După /panel, un membru trimite formularul. Cererea apare într-un canal HR privat. Pentru o înscriere nouă, HR poate respinge sau aproba și selecta gradul. Pentru reintegrare, HR doar aprobă sau respinge; gradul se calculează automat din fila „Reintegrare”. La aprobare, botul completează foaia conform Apps Script, marchează cererea cu HR-ul care a decis în Discord și trimite mesajul cu callsign-ul prin webhook.
+
+CONFIGURARE
+1. În .env existent, păstrează tokenurile și setările deja completate. Adaugă noile linii de mai jos, completând URL-ul unui webhook NOU și păstrând rolul HR pe care l-ai dat:
+   HR_REVIEW_ROLE_IDS=1553118142820130857
+   HR_REVIEW_CHANNEL_NAME=cereri-membri-hr
+   HR_REVIEW_CHANNEL_ID=
+   CALLSIGN_WEBHOOK_URL=pune_aici_urlul_webhookului_nou
+   DISCORD_ROLE_CADET_ID=id_rol_cadet
+   DISCORD_ROLE_AGENT_ID=id_rol_agent
+   DISCORD_ROLE_AGENT_PRINCIPAL_ID=id_rol_agent_principal
+   DISCORD_ROLE_AGENT_SEF_PRINCIPAL_ID=id_rol_agent_sef_principal
+   DISCORD_ROLE_INSTRUCTOR_SEF_ID=1516086671559491787
+   DISCORD_ROLE_CHESTOR_GENERAL_ID=1513782489632473263
+   DISCORD_INSTRUCTOR_RADIO_ROLE_ID=1536429498155794494
+   DISCORD_INSTRUCTOR_MDT_ROLE_ID=1519075137134137437
+   DISCORD_INSTRUCTOR_TESTER_ROLE_ID=1519078670025621514
+   DISCORD_INSTRUCTOR_HR_ROLE_ID=1519075276754255902
+   DISCORD_INSTRUCTOR_MOTO_ROLE_ID=1542480809544515684
+   DISCORD_INSTRUCTOR_HELI_ROLE_ID=1542480898933657730
+   DISCORD_INSTRUCTOR_HS_ROLE_ID=1533143487548096592
+
+2. Canalul HR se creează automat la prima comandă /panel. Pentru asta botul trebuie să aibă Manage Channels și Manage Roles, precum și View Channels, Send Messages, Embed Links și Read Message History. Rolul botului trebuie să poată seta permisiunile pentru rolul HR. Canalul creat este ascuns de @everyone și vizibil rolului HR. Dacă nu vrei să-i dai botului aceste permisiuni, creează manual un canal privat, permite rolului HR și botului să-l vadă și completează ID-ul lui în HR_REVIEW_CHANNEL_ID; atunci botul nu îl creează.
+
+3. Creează webhook-ul nou în canalul unde vrei mesajul cu callsign: Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL. Pune URL-ul în CALLSIGN_WEBHOOK_URL. Nu reutiliza webhook-urile din scriptul original, deoarece URL-urile lor au fost partajate și trebuie regenerate/șterse.
+
+4. Configurează rolurile de grad: activează Developer Mode în Discord, apoi click dreapta pe fiecare rol (Cadet, Agent, Agent Principal, Agent Șef Principal) → Copy Role ID. Pune ID-urile în cele patru setări DISCORD_ROLE_..._ID din .env. Fiecare rol trebuie să aibă ID diferit.
+
+5. Botul are nevoie de Manage Roles și Manage Nicknames. În lista de roluri a serverului, mută rolul botului deasupra celor patru roluri de grad și deasupra membrilor cărora le va schimba nickname-ul. La aprobare, botul atribuie rolul gradului, elimină celelalte roluri de grad configurate și setează nickname-ul în formatul [Callsign] Nume. Nickname-urile Discord sunt limitate la 32 de caractere.
+
+Formularul poate fi folosit de orice membru când PANEL_ALLOWED_ROLE_IDS este gol. Dacă setezi unul sau mai multe ID-uri acolo, doar membrii cu acele roluri pot trimite formularul.
+
+6. Certificate disponibile pentru gestionarea instructorilor: Radio, MDT, Tester PD, Human Resources, Moto, INSTRUCTOR PILOT și HS. Un administrator publică panelul de adăugare cu `/panel-instructor`. După alegerea certificatului, `/panel-instructor` oferă doar acțiunile pentru care utilizatorul are rol: adăugarea unui INSTRUCTOR rămâne permisă doar INSTRUCTORULUI-ȘEF aflat primul în lista acelui certificat (cu „Șef” în nume la Tester PD și HR), iar adăugarea unui INSTRUCTOR ȘEF rămâne permisă doar rolului Chestor General. Comenzile directe `/add instructor`, `/add instructor-sef`, `/remove instructor` și `/remove instructor-sef` păstrează aceleași reguli. Interdicțiile se gestionează din `/panel-cooldown`.
+
+PANEL UP / DOWN
+Completează în `.env` `UPDOWN_MANAGEMENT_ROLE_ID` cu ID-ul rolului Discord Conducere. La fiecare UP/DOWN, botul are nevoie de ID-urile rolurilor sursă și destinație: Cadet, Agent, Agent Principal și Agent Șef Principal folosesc setările existente `DISCORD_ROLE_..._ID`; pentru celelalte grade completează `DISCORD_ROLE_INSPECTOR_ID`, `DISCORD_ROLE_SUB_COMISAR_ID`, `DISCORD_ROLE_COMISAR_ID` și `DISCORD_ROLE_COMISAR_SEF_ID`. Chestor General folosește `DISCORD_ROLE_CHESTOR_GENERAL_ID`. UP la Inspector acordă și rolul configurat în `DISCORD_ROLE_SUPERVIZOR_ID`; UP la Sub-Comisar acordă și rolul Conducere din `UPDOWN_MANAGEMENT_ROLE_ID`. La DOWN sub aceste praguri, rolurile secundare se retrag. Botul trebuie să aibă Manage Roles și Manage Nicknames, iar rolul botului trebuie să fie deasupra tuturor acestor roluri și a membrilor vizați. Dacă lipsește o setare necesară, operația se oprește înainte să modifice foaia.
+
+Doar membrii cu rolul Conducere configurat pot publica sau folosi `/panel-updown`; rolul se verifică la publicare, la apăsarea butonului și la trimiterea formularului. Panelul mută membrul în primul rând liber al gradului următor sau anterior, conform intervalelor din scripturi: Cadet ↔ Agent ↔ Agent Principal ↔ Agent Șef Principal ↔ Inspector ↔ Sub-Comisar ↔ Comisar ↔ Comisar-Șef ↔ Chestor General. Se actualizează fila `MEMBRII POLITIE` și, dacă există, în `MONITORIZARE ACTIVITATE` coloanele A, C și E:K; B și D rămân neatinse. După mutarea din Sheets, botul acordă rolul nou, retrage rolul gradului anterior și setează nickname-ul la `[Callsign] Nume` (maximum 32 de caractere). Notificarea/jurnalul folosește `UPDOWN_WEBHOOK_URL`, care poate rămâne necompletat. Nu reutiliza URL-ul din scriptul Apps Script lipit în conversație: acesta a fost expus și trebuie șters/regenerat.
+
+PANEL COOLDOWN / INTERDICȚII
+Un administrator publică panelul cu `/panel-cooldown`. Sunt butoane Radio, MDT, MOTO, PILOT și HS. Pentru certificatul ales, poate apăsa Adaugă sau Scoate doar instructorul care are rolul Discord al acelui certificat sau un INSTRUCTOR ȘEF. La Adaugă, introdu ID-ul și numărul de zile; scrie `interdictie` sau `permanent` pentru interdicție. La Scoate, introdu ID-ul. Modificarea se scrie direct în foaie, fără cerere sau aprobare HR. Cooldown-ul poate fi scos de instructorul certificatului sau de INSTRUCTOR ȘEF; interdicția se scoate doar de INSTRUCTOR ȘEF.
+
+ID-ul este căutat în `MEMBRII POLITIE!A7:A348`. Botul scrie în celula callsign aceeași valoare brută ca în coloana A, ca formula existentă să poată găsi persoana și să-i completeze numele din coloana C. În fila `Evidenta Cooldown / Interdictii`, datele încep de la rândul 5: Radio B/E, MDT G/J, Moto L/O, Pilot Q/T, HS V/Y. Se scriu callsign-ul/ID-ul și data `dd.MM` (fără formulă); ambele celule sunt bold. Data completă pentru expirarea automată rămâne într-o notă invizibilă. Cooldown-urile expirate se șterg la pornirea botului și apoi la fiecare 5 minute. Interdicțiile scriu `INTERDICTIE`, colorează roșu M (Radio), N (MDT), O (Moto), P (Pilot) sau Q (HS) în `MEMBRII POLITIE` și nu expiră singure.
+
+În fila „Instructori”, Moto folosește B:E, INSTRUCTOR PILOT folosește G:J, iar HS folosește L:O în tabelul de jos: antetul este pe rândul 21, coloanele pe rândul 22 și lista pe rândurile 23–32.
+
+PRELUARE REZULTATE PROBE INSTRUCTORI
+Botul urmărește canalul Discord cu ID `1542197443569918096`. Modelul mesajului este `Nume instructor: ...`, `Callsign candidat: ...`, `Proba sustinuta: ...`, `Rezultat: ADMIS/RESPINS/Confiscat`. Caută callsign-ul în `MEMBRII POLITIE!A7:C348`; dacă mesajul conține suplimentar `ID in-game:`, acesta are prioritate. La `ADMIS`, bifează coloana certificatului; la `Confiscat`, o debifează: M = Radio, N = MDT, O = MOTO, P = PILOT/Heli, Q = HS. Înainte să scrie, verifică dacă celula exactă are validare de checkbox; celulele fără checkbox rămân nemodificate. `RESPINS`, membru găsit ambiguu/inexistent, certificat necunoscut sau celulă fără checkbox nu schimbă foaia. La succes, botul adaugă ✅ la mesaj.
+
+Pentru funcția aceasta, activează `Message Content Intent`: Discord Developer Portal → aplicația botului → Bot → Privileged Gateway Intents → pornește **Message Content Intent** și salvează. Botul trebuie să aibă acces la canalul indicat, inclusiv `View Channel` și `Read Message History`. După activare repornește botul.
+
+7. Verifică celelalte setări din .env: DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, DISCORD_GUILD_ID, GOOGLE_SPREADSHEET_ID, GOOGLE_MAIN_SHEET_NAME și GOOGLE_SERVICE_ACCOUNT_FILE. Service account-ul trebuie să aibă acces Editor la foaie, iar Google Sheets API trebuie activat în proiectul său Cloud.
+
+PANEL DEMISII / OUT
+Rulează `/panel-out` cu un cont administrator ca să publici panelul cu două butoane. Oricine poate apăsa `Demisie`, introduce ID-ul in-game și motivul; demisia se procesează imediat, fără aprobare. Butonul `OUT` poate fi folosit doar de rolul `1513782489624346661`; formularul cere ID in-game, motiv și link la filmarea care dovedește motivul. OUT-ul se procesează imediat, fără aprobare. ID-ul este afișat în panel ca `ID in-game`.
+
+La aprobare, botul caută ID-ul în `MEMBRII POLITIE` (de la rândul 7) și `MONITORIZARE ACTIVITATE`, alegând rândul activ dacă există duplicate. Curăță din foaia poliției coloanele A, C, D, J, K, L și T, debifează M:Q, apoi curăță A, C și E:K din monitorizare; B și D din monitorizare și B și G din foaia poliției rămân intacte. Dacă callsign-ul este sub 399 și fila `Reintegrare` există, adaugă acolo ID-ul, Discord ID-ul, data ieșirii și valorile din E+F. Notificările respectă regula de 14 zile din script.
+
+Completează în `.env` `DEPARTURE_WEBHOOK_URL` pentru mesajul general și `DEPARTURE_POLICY_WEBHOOK_URL` pentru notificarea regulii de 14 zile. Motivul este inclus în notificarea generală; linkul filmării OUT este inclus acolo pentru cererile OUT. `DEPARTURE_HR_ROLE_ID` este rolul menționat când persoana iese înainte de 14 zile. `DEPARTURE_OUT_ROLE_ID=1513782489624346661` limitează folosirea formularului OUT la rolul indicat; cererile se procesează fără aprobare. Creează webhook-uri noi pentru aceste setări: URL-urile din scriptul lipit au fost expuse și trebuie șterse/regenerate. Scriptul lipit nu conținea URL-ul variabilei `webhookUrlCooldown`, așa că acel mesaj de cooldown nu este inclus.
+
+PANEL CONCEDIU
+Rulează `/panel-concediu` cu un cont administrator. Formularul cere ID IN-GAME, Nume + Prenume, Callsign, perioada (data start - data end) și motivul. Cererea este trimisă în canalul HR și salvată în fila Google Sheets `Concedii`, începând cu rândul 4: B = ID IN-GAME, C = Nume + Prenume, D = Callsign, E = perioada start, F = perioada end, G = motiv, H = status, I = HR care a decis, J = data deciziei. Botul caută primul rând liber verificând coloana B. HR poate aproba sau respinge; botul actualizează H:J fără să atingă B:F.
+PORNIRE
+În folderul proiectului rulează npm start. În Discord, rulează /panel într-un canal unde botul poate trimite mesaje. Panelul va fi publicat acolo, iar cererile merg în canalul privat cereri-membri-hr.
+
+REINTEGRARE AUTOMATĂ
+Botul caută ID-ul de joc din formular în coloana A a filei „Reintegrare” și verifică dacă Discord ID-ul formularului corespunde coloanei B, apoi citește gradul combinat din D+E. Inspector, Subcomisar, Comisar, Comisar Șef și Chestor General → Agent Șef Principal; Agent Șef Principal → Agent Principal; Agent Principal → Agent. Dacă ID-ul lipsește, apare de mai multe ori, Discord ID-ul nu corespunde sau gradul nu are regulă, cererea rămâne neaprobată și HR primește motivul. După adăugarea cu succes în foaia principală, botul golește A:E din acel rând de reintegrare, ca înregistrarea să nu poată fi refolosită.
+
+GRADE ȘI COLOANE
+• Cadet: rândurile 240–337
+• Agent: rândurile 141–239
+• Agent Principal: rândurile 90–139
+• Agent Șef Principal: rândurile 35–88
+
+Botul scrie ID-ul în A, numele în C, secția în G, Discord ID în T și data (fără oră) în J/K. Pentru Agent Principal și Agent Șef Principal bifează M/N. Dacă există MONITORIZARE ACTIVITATE, actualizează A:C pe același rând. Coloanele U și V rămân neatinse. HR-ul care a decis și gradul final apar pe mesajul cererii din canalul Discord.
+
+SECURITATE
+Nu trimite .env, service-account.json sau URL-ul webhookului. Tokenul și webhook-urile din materialul anterior au fost expuse; regenerează-le înainte de folosire.
